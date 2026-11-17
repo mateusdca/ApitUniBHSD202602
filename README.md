@@ -1,82 +1,174 @@
-# Template de API RESTful (FastAPI + SQLite) - Monolito (Projeto A3)
+# API de Gerenciamento com NGINX
 
-> 💡 **AVISO IMPORTANTE:** Este repositório contém a estrutura base desenvolvida para o **Projeto A3** em formato **monolítico**. Todo o ciclo de vida da aplicação — conexão com o banco, estruturação de dados e roteamento — está concentrado em um único arquivo (`main.py`). Ao final deste documento, há um guia prático de como evoluir esta base para o **Projeto A4**, adotando uma arquitetura em múltiplas camadas.
+## 1. Descrição do projeto
 
-Esta é uma API educacional desenvolvida em Python com o framework **FastAPI** e banco de dados relacional **SQLite**. Ela atende aos requisitos iniciais de persistência de dados e documentação automática, servindo como backend para integração com a UC de Usabilidade.
+Este projeto consiste em uma API REST desenvolvida com Python e FastAPI, utilizando SQLite como banco de dados.
 
-## 🛠 Tecnologias e Pré-requisitos
+Nesta atividade, foi implementado o NGINX como **Reverse Proxy (proxy reverso)**, responsável por receber as requisições HTTP e encaminhá-las para a aplicação FastAPI, executada pelo servidor Uvicorn.
 
-* **Python 3.8+**
-* **uv** (Gerenciador de pacotes e projetos ultrarrápido para Python)
-* **FastAPI** (Framework web de alta performance)
-* **Uvicorn** (Servidor web ASGI)
-* **SQLite** (Banco de dados relacional nativo do Python)
+A infraestrutura utiliza Docker e Docker Compose para facilitar a configuração e execução dos serviços.
 
-## ⚙️ Como configurar e executar (usando `uv`)
+## 2. Tecnologias utilizadas
 
-1. Clone este repositório para o seu ambiente local (ou abra no GitHub Codespaces).
-2. No terminal, dentro da pasta do projeto, instale o **uv**
-```bash
-pip install uv
+- Python 3.12
+- FastAPI
+- Uvicorn
+- SQLite
+- NGINX
+- Docker
+- Docker Compose
+
+## 3. Estrutura dos arquivos adicionados
+
+```text
+ApitUniBHSD202602/
+├── nginx/
+│   └── nginx.conf
+├── data/
+├── Dockerfile
+├── docker-compose.yml
+├── .dockerignore
+├── database.py
+├── main.py
+├── models.py
+├── services.py
+└── README.md
 ```
-3. No terminal, dentro da pasta do projeto, inicialize o ambiente com o **uv** (isso criará o `pyproject.toml` e preparará o ambiente virtual isolado):
-   ```bash
-   uv init
-   ```
-4. Adicione as dependências do projeto. O **uv** fará o download e a instalação em frações de segundo:
-   ```bash
-   uv add fastapi uvicorn
-   ```
-5. Inicie o servidor local da API utilizando o comando `run` do **uv**:
-   ```bash
-   uv run uvicorn main:app --reload
-   ```
-   *(Na primeira execução, o banco de dados será criado automaticamente na mesma pasta).*
 
-6. O servidor estará rodando em: `http://127.0.0.1:8000`
+## 4. Configuração do NGINX
 
-## 📖 Documentação e Testes (Swagger UI)
+Foi criado o arquivo `nginx/nginx.conf` com a configuração do servidor:
 
-A API possui documentação interativa gerada automaticamente. Você não precisa de ferramentas externas como Postman ou Insomnia para testar as rotas.
+```nginx
+events {
+    worker_connections 1024;
+}
 
-Com o servidor em execução, acesse no navegador:
-👉 **[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)**
+http {
+    server {
+        listen 80;
 
-## 🚀 Resumo dos Endpoints Disponíveis
+        location / {
+            proxy_pass http://api:8000;
 
-A API implementa o CRUD completo. Todos os endpoints estão definidos no arquivo `main.py`:
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+}
+```
 
-* **POST `/registros`**: Cria um novo registro no banco (Status `201 Created` ou `400 Bad Request`).
-* **GET `/registros`**: Retorna a lista com todos os registros salvos (Status `200 OK`).
-* **GET `/registros/{id}`**: Busca os detalhes de um registro específico (Status `200 OK` ou `404 Not Found`).
-* **PUT `/registros/{id}`**: Atualiza os dados de um registro existente (Status `200 OK` ou `404 Not Found`).
-* **DELETE `/registros/{id}`**: Exclui um registro do banco de dados (Status `200 OK` ou `404 Not Found`).
+O NGINX recebe as requisições na porta 80 e as encaminha para o serviço `api`, na porta 8000, dentro da rede Docker.
 
----
+## 5. Como executar o projeto
 
-## 🏗️ Guia de Evolução: Do Monolito (A3) para Múltiplas Camadas (A4)
+### Pré-requisitos
 
-Manter todo o código em um único arquivo (`main.py`) é excelente para o aprendizado inicial e testes rápidos, mas torna a manutenção difícil conforme o sistema cresce. 
+- Docker Desktop instalado e em execução.
+- Git instalado.
 
-Para o **Projeto A4**, o grupo deverá refatorar este monolito em uma **arquitetura de múltiplas camadas**. Siga estes passos para organizar a casa:
+### Passo 1 – Clonar o repositório
 
-1. **Isole o Banco de Dados (`database.py`)**
-   * Crie um novo arquivo chamado `database.py`.
-   * Mova para ele toda a lógica de conexão com o SQLite (a criação da `engine`, do `cursor` ou a configuração do ORM que estiverem usando) e a função que cria as tabelas iniciais.
-   * *Analogia:* Este será o almoxarifado exclusivo do seu sistema.
+```bash
+git clone https://github.com/mateusdca/ApitUniBHSD202602.git
+```
 
-2. **Separe os Contratos de Dados (`models.py`)**
-   * Crie um arquivo `models.py`.
-   * Recorte do seu `main.py` todas as classes que herdam de `BaseModel` do Pydantic (como `RegistroCreate`, `RegistroResponse`, etc.) e cole neste novo arquivo.
-   * *Analogia:* Este arquivo será o setor de controle de qualidade, ditando o que pode entrar ou sair do sistema.
+### Passo 2 – Acessar a pasta
 
-3. **Limpe as Rotas (`main.py`)**
-   * O seu `main.py` agora deve ficar muito mais limpo.
-   * Mantenha apenas a inicialização do FastAPI (`app = FastAPI()`) e as funções de rota (os `@app.get`, `@app.post`, etc.).
-   * No topo do `main.py`, importe os módulos que você acabou de criar:
-     ```python
-     from database import conectar_banco, criar_tabelas
-     from models import RegistroCreate, RegistroResponse
-     ```
+```bash
+cd ApitUniBHSD202602
+```
 
-Após essa divisão, seu código estará preparado para escalar, integrando facilmente novas funcionalidades de segurança, como um proxy reverso Nginx, de forma totalmente estruturada e profissional.
+### Passo 3 – Selecionar a branch da atividade
+
+```bash
+git checkout atividade-nginx
+```
+
+### Passo 4 – Construir e iniciar os containers
+
+```bash
+docker compose up --build -d
+```
+
+Esse comando constrói a imagem da API e inicia os containers da aplicação e do NGINX em segundo plano.
+
+### Passo 5 – Verificar os containers
+
+```bash
+docker compose ps
+```
+
+Os serviços da API e do NGINX devem aparecer em execução.
+
+## 6. Como acessar a aplicação
+
+Após iniciar os containers, a aplicação estará disponível pelos seguintes endereços:
+
+| Recurso | Endereço |
+|---|---|
+| API | http://localhost |
+| Documentação Swagger | http://localhost/docs |
+| Especificação OpenAPI | http://localhost/openapi.json |
+
+As requisições são recebidas pelo NGINX e encaminhadas para a API FastAPI.
+
+## 7. Testes realizados
+
+Foram realizados testes utilizando o PowerShell:
+
+**Teste da documentação Swagger:**
+
+```powershell
+Invoke-WebRequest http://localhost/docs -UseBasicParsing
+```
+
+Resultado: `200 OK`.
+
+**Teste da especificação OpenAPI:**
+
+```powershell
+Invoke-WebRequest http://localhost/openapi.json -UseBasicParsing
+```
+
+Resultado: `200 OK`.
+
+Os resultados confirmaram que o NGINX está recebendo e encaminhando corretamente as requisições para a aplicação.
+
+## 8. Gerenciamento dos containers
+
+**Visualizar os containers:**
+
+```bash
+docker compose ps
+```
+
+**Visualizar os logs:**
+
+```bash
+docker compose logs
+```
+
+**Parar os serviços:**
+
+```bash
+docker compose down
+```
+
+**Reiniciar e reconstruir a aplicação:**
+
+```bash
+docker compose up --build -d
+```
+
+## 9. Conclusão
+
+A implementação permitiu integrar o NGINX à API desenvolvida com FastAPI, utilizando Docker e Docker Compose.
+
+Com o uso do NGINX como proxy reverso, as requisições passam a ser recebidas pela porta 80 e encaminhadas internamente para a aplicação na porta 8000.
+
+Os testes realizados retornaram o status HTTP 200 OK, comprovando o funcionamento da configuração.
+
+Dessa forma, a atividade demonstrou na prática a utilização do NGINX para intermediar as requisições entre os clientes e uma aplicação web.
